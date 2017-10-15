@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,8 @@ import android.widget.PopupWindow;
 public class BubblePopupWindow extends PopupWindow {
     private int screenWidth;    //用于存储屏幕宽度
     private int screenHeight;   //用于存储屏幕高度
+
+    private int maxHeight;
     private BubbleRelativeLayout bubbleView;
     private Context context;
 
@@ -37,98 +40,54 @@ public class BubblePopupWindow extends PopupWindow {
         bubbleView.addView(view);
         setContentView(bubbleView);
     }
-
-    public void setParam(int width, int height) {
-        setWidth(width);
-        setHeight(height);
-    }
-
-//    public void show(View parent) {
-//        show(parent, Gravity.TOP, getMeasuredWidth() / 2);
-//    }
-
-    public void show(View parent, int gravity) {
-        show(parent, gravity, getMeasuredWidth() / 2);
-    }
-
-    /**
-     * 显示弹窗
-     *
-     * @param parent
-     * @param gravity
-     * @param bubbleOffset 气泡尖角位置偏移量。默认位于中间
-     */
-    public void show(View parent, int gravity, float bubbleOffset) {
-        BubbleRelativeLayout.BubbleLegOrientation orientation = BubbleRelativeLayout.BubbleLegOrientation.TOP;
-        if (!this.isShowing()) {
-            switch (gravity) {
-                case Gravity.BOTTOM:
-                    orientation = BubbleRelativeLayout.BubbleLegOrientation.TOP;
-                    break;
-                case Gravity.TOP:
-                    orientation = BubbleRelativeLayout.BubbleLegOrientation.BOTTOM;
-                    break;
-                default:
-                    break;
-            }
-//            bubbleView.setBubbleParams(orientation, bubbleOffset); // 设置气泡布局方向及尖角偏移
-
-            int[] location = new int[2];
-            parent.getLocationOnScreen(location);
-
-            switch (gravity) {
-                case Gravity.BOTTOM:
-                    showAsDropDown(parent);
-                    break;
-                case Gravity.TOP:
-                    showAtLocation(parent, Gravity.NO_GRAVITY, location[0], location[1] - getMeasureHeight());
-                    break;
-                case Gravity.RIGHT:
-                    showAtLocation(parent, Gravity.NO_GRAVITY, location[0] + parent.getWidth(), location[1] - (parent.getHeight() / 2));
-                    break;
-                case Gravity.LEFT:
-                    showAtLocation(parent, Gravity.NO_GRAVITY, location[0] - getMeasuredWidth(), location[1] - (parent.getHeight() / 2));
-                    break;
-                default:
-                    break;
-            }
-        } else {
-            this.dismiss();
-        }
-    }
-
     /**
      * 显示弹窗
      * @param parent
-     * @param x 在屏幕中的位置x
-     * @param y 在屏幕中的位置y
      */
-    public void show(View parent,float x,float y) {
+    public void show(View parent,View view) {
+        int[] location = new int[2];
+        view.getLocationOnScreen(location);
+        float x = location[0]+view.getWidth()/2;
+        float y = location[1];
         BubbleRelativeLayout.BubbleLegOrientation orientation;
         if (!this.isShowing()) {
             int width = getMeasuredWidth();
             int height = getMeasureHeight();
-            int model = 0;
-            //调整出最好的尖角方向（只有上下两个模式）
-            if(y-height>screenHeight-y-height){
-                model = 0;
-                orientation = BubbleRelativeLayout.BubbleLegOrientation.BOTTOM;
+            Log.e("xukai","width:"+width+"   height:"+height);
+            int positionX;
+            int positionY;
+            int offsetX = 0;
+            int offsetY = 0;
+            if(x<(width/2)){
+                positionX = 0;
+                offsetX = (int) (x);
+                if(positionX+width>screenHeight-BubbleRelativeLayout.PADDING_H){
+                    positionX = screenHeight-BubbleRelativeLayout.PADDING_H - width;
+                }
+            }else if((x+width/2)>screenWidth){
+                positionX = screenWidth-width;
+                offsetX = (int) (x-positionX);
+                if(positionX+width>screenHeight-BubbleRelativeLayout.PADDING_H){
+                    positionX = screenHeight-BubbleRelativeLayout.PADDING_H - width;
+                }
             }else {
-                model = 1;
-                orientation = BubbleRelativeLayout.BubbleLegOrientation.TOP;
+                positionX = (int) (x-width/2);
+                offsetX = width/2;
+                if(positionX+width>screenHeight-BubbleRelativeLayout.PADDING_H){
+                    positionX = screenHeight-BubbleRelativeLayout.PADDING_H - width;
+                }
             }
-            //传入在屏幕中x,y值,在Layout中计算偏移量,
-            bubbleView.setBubbleParams(orientation,x,y); // 设置气泡布局方向及尖角偏移
-
-            switch (model) {
-                case 1:
-                    showAtLocation(parent, Gravity.CENTER_HORIZONTAL, 0,height+parent.getHeight()+30);
-                    break;
-                case 0:
-                    showAtLocation(parent, Gravity.CENTER_HORIZONTAL, (screenWidth-width)/2, (int)y);
-                    break;
-                default:
-                    break;
+            //调整出最好的尖角方向（只有上下两个模式）
+            if(y-height>screenHeight-y-height){//上方模式
+                orientation = BubbleRelativeLayout.BubbleLegOrientation.BOTTOM;
+                bubbleView.setBubbleParams(orientation,offsetX,offsetY); // 设置气泡布局方向及尖角偏移
+                //在Layout中计算偏移量
+                showAtLocation(parent, Gravity.NO_GRAVITY, positionX, (int)(y-height));
+            }else {//下方模式
+                orientation = BubbleRelativeLayout.BubbleLegOrientation.TOP;
+                bubbleView.setBubbleParams(orientation,offsetX,offsetY); // 设置气泡布局方向及尖角偏移
+                //在Layout中计算偏移量
+                showAtLocation(parent, Gravity.NO_GRAVITY, positionX, (int) y+view.getHeight());
             }
         } else {
             this.dismiss();
@@ -142,6 +101,7 @@ public class BubblePopupWindow extends PopupWindow {
     public int getMeasureHeight() {
         getContentView().measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         int popHeight = getContentView().getMeasuredHeight();
+        popHeight = popHeight<(screenHeight-2*BubbleRelativeLayout.PADDING_V)?popHeight:(screenHeight-2*BubbleRelativeLayout.PADDING_V);
         return popHeight;
     }
 
@@ -153,6 +113,7 @@ public class BubblePopupWindow extends PopupWindow {
     public int getMeasuredWidth() {
         getContentView().measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         int popWidth = getContentView().getMeasuredWidth();
+        popWidth = popWidth<(screenWidth-2*BubbleRelativeLayout.PADDING_H)?popWidth:(screenWidth-2*BubbleRelativeLayout.PADDING_H);
         return popWidth;
     }
 

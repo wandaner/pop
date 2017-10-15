@@ -15,30 +15,30 @@ import android.graphics.Shader;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 /**
  * 气泡布局
  */
-public class BubbleRelativeLayout extends RelativeLayout {
+public class BubbleRelativeLayout extends FrameLayout {
 
     /**
-     * 气泡尖角方向
+     * 气泡尖角方向，只有尖角在上和尖角在下
      */
     public enum BubbleLegOrientation {
         TOP, BOTTOM
     }
 
-    private int screenWidth;
-    private int screenHeight;
-
-    public static int PADDING = 30;
-    public static int LEG_HALF_BASE = 30;
+    private int offsetX;
+    public static int PADDING_V = 30;
+    public static int PADDING_H = 10;
+    public static int LEGSIZE = 30;
     public static float STROKE_WIDTH = 2.0f;
     public static float CORNER_RADIUS = 8.0f;
     public static int SHADOW_COLOR = Color.argb(100, 0, 0, 0);
-    public static float MIN_LEG_DISTANCE = PADDING + LEG_HALF_BASE;
 
     private Paint mFillPaint = null;
     private final Path mPath = new Path();
@@ -57,33 +57,12 @@ public class BubbleRelativeLayout extends RelativeLayout {
 
     public BubbleRelativeLayout(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        init(context, attrs);
+        init(context);
     }
 
-    private void init(final Context context, final AttributeSet attrs) {
-
-        //setGravity(Gravity.CENTER);
-        getScreenMetrics(context);
-
-        ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    private void init(final Context context) {
+        ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         setLayoutParams(params);
-
-        if (attrs != null) {
-            TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.bubble);
-
-            try {
-                PADDING = a.getDimensionPixelSize(R.styleable.bubble_padding, PADDING);
-                SHADOW_COLOR = a.getInt(R.styleable.bubble_shadowColor, SHADOW_COLOR);
-                LEG_HALF_BASE = a.getDimensionPixelSize(R.styleable.bubble_halfBaseOfLeg, LEG_HALF_BASE);
-                MIN_LEG_DISTANCE = PADDING + LEG_HALF_BASE;
-                STROKE_WIDTH = a.getFloat(R.styleable.bubble_strokeWidth, STROKE_WIDTH);
-                CORNER_RADIUS = a.getFloat(R.styleable.bubble_cornerRadius, CORNER_RADIUS);
-            } finally {
-                if (a != null) {
-                    a.recycle();
-                }
-            }
-        }
 
         mPaint.setColor(SHADOW_COLOR);
         mPaint.setStyle(Paint.Style.FILL);
@@ -108,9 +87,10 @@ public class BubbleRelativeLayout extends RelativeLayout {
 
         renderBubbleLegPrototype();
 
-        setPadding(PADDING, PADDING, PADDING, PADDING);
+        setPadding(PADDING_V, PADDING_V, PADDING_V, PADDING_V);
 
     }
+
 
     @Override
     protected void onConfigurationChanged(Configuration newConfig) {
@@ -122,13 +102,15 @@ public class BubbleRelativeLayout extends RelativeLayout {
      */
     private void renderBubbleLegPrototype() {
         mBubbleLegPrototype.moveTo(0, 0);
-        mBubbleLegPrototype.lineTo(PADDING * 1.5f, -PADDING / 1.5f);
-        mBubbleLegPrototype.lineTo(PADDING * 1.5f, PADDING / 1.5f);
+        mBubbleLegPrototype.lineTo(LEGSIZE * 1.5f, -LEGSIZE / 1.5f);
+        mBubbleLegPrototype.lineTo(LEGSIZE * 1.5f, LEGSIZE / 1.5f);
         mBubbleLegPrototype.close();
     }
 
-    public void setBubbleParams(final BubbleLegOrientation bubbleOrientation, final float x,final float y) {
+    public void setBubbleParams(final BubbleLegOrientation bubbleOrientation,int offsetX,int offsetY) {
         mBubbleOrientation = bubbleOrientation;
+        offsetX = offsetX>LEGSIZE?offsetX:LEGSIZE;
+        this.offsetX = offsetX;
     }
 
     /**
@@ -139,29 +121,24 @@ public class BubbleRelativeLayout extends RelativeLayout {
      */
     private Matrix renderBubbleLegMatrix(final float width, final float height) {
 
-
         float dstX = 0;
         float dstY = 0;
         final Matrix matrix = new Matrix();
-
+        if(offsetX>width){
+            offsetX = (int) (width-LEGSIZE-PADDING_H);
+        }
         switch (mBubbleOrientation) {
-
             case TOP:
-                dstX = 0;
-//                dstX = 0;
+                dstX = offsetX;
                 dstY = 0;
                 matrix.postRotate(90);
                 break;
-
             case BOTTOM:
-//                dstX = Math.min(offset, width - MIN_LEG_DISTANCE);
-                dstX = 0;
+                dstX = offsetX;
                 dstY = height;
                 matrix.postRotate(270);
                 break;
-
         }
-
         matrix.postTranslate(dstX, dstY);
         return matrix;
     }
@@ -171,24 +148,13 @@ public class BubbleRelativeLayout extends RelativeLayout {
 
         final float width = canvas.getWidth();
         final float height = canvas.getHeight();
-
         mPath.rewind();
-        mPath.addRoundRect(new RectF(PADDING, PADDING, width - PADDING, height - PADDING), CORNER_RADIUS, CORNER_RADIUS, Path.Direction.CW);
+        mPath.addRoundRect(new RectF(PADDING_H, PADDING_V, width-PADDING_H, height-PADDING_V), CORNER_RADIUS, CORNER_RADIUS, Path.Direction.CW);
         mPath.addPath(mBubbleLegPrototype, renderBubbleLegMatrix(width, height));
 
         canvas.drawPath(mPath, mPaint);
         canvas.scale((width - STROKE_WIDTH) / width, (height - STROKE_WIDTH) / height, width / 2f, height / 2f);
 
         canvas.drawPath(mPath, mFillPaint);
-    }
-    /**
-     * 获取屏幕宽高，单位px
-     * @param context
-     * @return
-     */
-    public void getScreenMetrics(Context context){
-        DisplayMetrics dm = context.getResources().getDisplayMetrics();
-        screenWidth = dm.widthPixels;
-        screenHeight = dm.heightPixels;
     }
 }
